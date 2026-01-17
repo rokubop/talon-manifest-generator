@@ -1,20 +1,22 @@
 {
-  "name": "talon-manifest-tools",
-  "title": "Talon Manifest Tools",
+  "name": "talon-manifest-generator",
+  "title": "Talon Manifest Generator",
   "description": "Generates manifest.json and version files for Talon packages with automatic dependency resolution",
   "version": "2.0.0",
   "status": "experimental",
   "namespace": "",
-  "github": "https://github.com/rokubop/talon-manifest-tools",
+  "github": "https://github.com/rokubop/talon-manifest-generator",
   "preview": "",
   "author": "Roku",
   "tags": [],
-  "validateDependencies": false,
   "dependencies": {},
   "devDependencies": {},
   "contributes": {},
   "depends": {},
-  "_generator": "talon-manifest-tools",
+  "requiresTalonBeta": false,
+  "validateDependencies": false,
+  "_generator": "talon-manifest-generator",
   "_generatorVersion": "2.0.0",
-  "_generatorRequireVersionAction": false
+  "_generatorRequireVersionAction": false,
+  "_generatorStrictNamespace": true
 }

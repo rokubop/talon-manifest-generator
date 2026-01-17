@@ -327,7 +327,7 @@ def scan_all_manifests(talon_root: str) -> dict:
                     manifest = json.load(f)
 
                 # Only index manifests from our generator
-                if manifest.get('_generator') != 'talon-manifest-tools':
+                if manifest.get('_generator') != 'talon-manifest-generator':
                     continue
 
                 manifest_count += 1
@@ -769,7 +769,7 @@ def create_or_update_manifest() -> None:
                 new_manifest_data["validateDependencies"] = True
 
             new_manifest_data.update({
-                "_generator": "talon-manifest-tools",
+                "_generator": "talon-manifest-generator",
                 "_generatorVersion": get_generator_version(),
                 "_generatorRequireVersionAction": existing_manifest_data.get("_generatorRequireVersionAction", default_require_version),
                 "_generatorStrictNamespace": existing_manifest_data.get("_generatorStrictNamespace", True)
@@ -786,7 +786,7 @@ def create_or_update_manifest() -> None:
                 try:
                     with open(version_file_path, 'r', encoding='utf-8') as f:
                         first_lines = f.read(200)
-                        if 'talon-manifest-tools v' in first_lines:
+                        if 'talon-manifest-generator v' in first_lines:
                             existing_version = first_lines.split('v')[1].split('"')[0].split('\n')[0].strip()
                             current_version = get_generator_version()
                             if existing_version != current_version:
