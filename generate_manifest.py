@@ -28,6 +28,8 @@ Manifest fields:
 - preview: Preview image URL
 - author: Package author name (string) or names (list of strings)
 - tags: Category tags for the package
+- platforms: Platform compatibility (manually added, optional). Array of platform names, e.g. ["windows", "mac", "linux"]
+- license: License type (auto-detected from LICENSE file on first run, manually editable, optional). Only included if LICENSE file exists or manually set
 - requiresTalonBeta: Whether package requires Talon beta - attempts to auto detect if this is not yet set (first run), otherwise preserves existing setting
 - validateDependencies: Whether to validate dependencies at runtime (default: true)
   - true: Print errors on startup if dependencies not met
@@ -258,6 +260,46 @@ def parse_file(file_path: str, all_entities: AllEntities) -> None:
         visitor.visit(tree)
     except Exception as e:
         print(f"Error parsing {file_path}: {e}")
+
+LICENSE_PATTERNS = {
+    "MIT": ["Permission is hereby granted, free of charge", "MIT License"],
+    "Apache-2.0": ["Apache License", "Version 2.0"],
+    "GPL-3.0": ["GNU GENERAL PUBLIC LICENSE", "Version 3"],
+    "GPL-2.0": ["GNU GENERAL PUBLIC LICENSE", "Version 2"],
+    "BSD-3-Clause": ["Redistribution and use", "neither the name"],
+    "BSD-2-Clause": ["Redistribution and use", "without specific prior written permission"],
+    "ISC": ["Permission to use, copy, modify", "ISC"],
+    "Unlicense": ["This is free and unencumbered software"],
+}
+
+def detect_license(package_dir: str) -> str | None:
+    """
+    Auto-detect license type from LICENSE file in package directory.
+
+    Returns:
+        License type string (e.g., 'MIT', 'Apache-2.0') or None if not found
+    """
+    license_filenames = ['LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENCE', 'LICENCE.txt', 'LICENCE.md']
+
+    for filename in license_filenames:
+        license_path = os.path.join(package_dir, filename)
+        if os.path.exists(license_path):
+            try:
+                with open(license_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Check each license pattern
+                for license_type, patterns in LICENSE_PATTERNS.items():
+                    if all(pattern.lower() in content.lower() for pattern in patterns):
+                        return license_type
+
+                # License file exists but type not recognized
+                return "Custom"
+            except Exception as e:
+                print(f"Warning: Could not read license file {license_path}: {e}")
+                return None
+
+    return None
 
 def check_requires_talon_beta_in_talon_files(folder_path: str) -> bool:
     """
@@ -755,7 +797,15 @@ def create_or_update_manifest() -> None:
                         if github_url:
                             # Convert github.com URL to raw.githubusercontent.com URL for preview image
                             preview_value = github_url.replace("github.com", "raw.githubusercontent.com").rstrip('/') + f"/main/preview{ext}"
+                            print(f"Detected preview image: preview{ext}\n")
                         break
+
+            if "license" in existing_manifest_data:
+                license_value = existing_manifest_data["license"]
+            else:
+                license_value = detect_license(full_package_dir)
+                if license_value:
+                    print(f"Detected license: {license_value}\n")
 
             new_manifest_data = {
                 "name": existing_manifest_data.get("name", os.path.basename(full_package_dir)),
@@ -769,6 +819,10 @@ def create_or_update_manifest() -> None:
                 "author": existing_manifest_data.get("author", ""),
                 "tags": existing_manifest_data.get("tags", []),
             }
+
+            # Add optional license field if detected or exists
+            if license_value:
+                new_manifest_data["license"] = license_value
 
             # Determine default for _generatorRequiresVersionAction
             # If no namespace exists, should be False. Otherwise preserve existing value or default to True

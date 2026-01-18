@@ -60,7 +60,7 @@ def update_existing_readme(content: str, manifest: dict, package_dir: Path) -> t
     actions = []
 
     # Shield pattern to find existing shields
-    shield_pattern = r"!\[(Version|Status|Platform|Talon Beta)\]\([^\)]+\)"
+    shield_pattern = r"!\[(Version|Status|Platform|License|Talon Beta)\]\([^\)]+\)"
 
     # Check if shields already exist anywhere in the content
     existing_shields = re.findall(shield_pattern, content)
