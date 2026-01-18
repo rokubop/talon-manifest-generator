@@ -1,5 +1,8 @@
 # Manifest Generator for Talon
 
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Status](https://img.shields.io/badge/status-experimental-orange)
+
 Provides scripts for generating a `manifest.json` and `_version.py` for your Talon package (folder) which includes Talon dependencies, contributions, versioning, and dependency checking.
 
 Also includes a script for generating installation instructions.
@@ -20,11 +23,15 @@ git clone https://github.com/rokubop/talon-manifest-generator
 
 ## Scripts
 
+**Quick start:** Use `generate_all.py` to run all generators at once, or run individual scripts for specific tasks.
+
 ### generate_manifest.py
 Parses Python files using AST to detect Talon actions, settings, tags, lists, modes, scopes, and captures you contribute or depend on. Scans user directory to find all other packages with manifests to build an index of available packages. Maps your imported actions/settings to specific packages and their versions. Creates or updates `manifest.json` with all discovered information, preserving your manual edits to fields like name, description, etc.
 
 ```bash
 python generate_manifest.py ../talon-package
+# Or multiple packages at once:
+python generate_manifest.py ../package1 ../package2 ../package3
 ```
 
 ### generate_version.py
@@ -32,13 +39,44 @@ Generates a `_version.py` file that exposes your `manifest.json` package version
 
 ```bash
 python generate_version.py ../talon-package
+# Or multiple packages at once:
+python generate_version.py ../package1 ../package2 ../package3
+# Add --force to regenerate even if manifest version hasn't changed:
+python generate_version.py --force ../talon-package
+```
+
+### generate_readme.py
+Creates or updates `README.md` files with shield badges, description, and installation instructions. For existing READMEs, only updates the shield badges (preserves your custom installation instructions). Automatically includes `preview.png` if it exists in the package directory.
+
+```bash
+python generate_readme.py ../talon-package
+# Or multiple packages at once:
+python generate_readme.py ../package1 ../package2 ../package3
+```
+
+### generate_shields.py
+Generates or updates shield badges in your `README.md` based on your `manifest.json`. Badges show package status, version, Talon Beta requirement, and tags. If no README exists, prints badges to console for copy/paste.
+
+```bash
+python generate_shields.py ../talon-package
+# Or multiple packages at once:
+python generate_shields.py ../package1 ../package2 ../package3
 ```
 
 ### generate_install_block.py
-Outputs formatted installation instructions for your package based on your `manifest.json`, including dependency information. Useful for quickly generating README installation sections.
+Outputs formatted installation instructions for your package based on your `manifest.json`, including dependency information. Useful for quickly generating README installation sections. Only supports single directory.
 
 ```bash
 python generate_install_block.py ../talon-package
+```
+
+### generate_all.py
+Runs all generators in sequence: `generate_manifest.py`, `generate_version.py`, and `generate_readme.py`. Convenient way to update all generated files at once. Smart about not recreating files unnecessarily - only updates `_version.py` if the version changed, only updates shields in existing READMEs (preserves your custom content), and preserves manual edits to `manifest.json`.
+
+```bash
+python generate_all.py ../talon-package
+# Or multiple packages at once:
+python generate_all.py ../package1 ../package2 ../package3
 ```
 
 ## Example Manifest Output

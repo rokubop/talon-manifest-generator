@@ -485,10 +485,10 @@ def validate_namespace(namespace: str, contributes: Entities, strict: bool = Tru
                 # Valid: user.mouse_rig or user.mouse_rig_something
                 # Invalid: user.other_thing
                 if entity_suffix != namespace_base and not entity_suffix.startswith(f"{namespace_base}_"):
-                    warnings.append(f"  ⚠ {entity_type}: {entity} (expected '{namespace}' or '{namespace}_*')")
+                    warnings.append(f"  WARNING: {entity_type}: {entity} (expected '{namespace}' or '{namespace}_*')")
 
     if warnings:
-        print(f"\n⚠ Namespace warnings (expected namespace: {namespace}):")
+        print(f"\nNamespace warnings (expected namespace: {namespace}):")
         for warning in warnings:
             print(warning)
         print()
@@ -753,9 +753,13 @@ def create_or_update_manifest() -> None:
             }
 
             # Determine default for _generatorRequiresVersionAction
-            # If no namespace or this is a new manifest with no namespace, default to False
-            # Otherwise preserve existing value or default to True
-            default_require_version = bool(namespace) if is_new_manifest else True
+            # If no namespace exists, should be False. Otherwise preserve existing value or default to True
+            if not namespace:
+                default_require_version = False
+            elif is_new_manifest:
+                default_require_version = True
+            else:
+                default_require_version = existing_manifest_data.get("_generatorRequiresVersionAction", True)
 
             new_manifest_data.update({
                 "dependencies": package_dependencies,
@@ -774,7 +778,7 @@ def create_or_update_manifest() -> None:
             new_manifest_data.update({
                 "_generator": "talon-manifest-generator",
                 "_generatorVersion": get_generator_version(),
-                "_generatorRequiresVersionAction": existing_manifest_data.get("_generatorRequiresVersionAction", default_require_version),
+                "_generatorRequiresVersionAction": default_require_version,
                 "_generatorStrictNamespace": existing_manifest_data.get("_generatorStrictNamespace", True)
             })
 
@@ -812,7 +816,7 @@ def create_or_update_manifest() -> None:
 
                                 if should_warn:
                                     rel_path = os.path.relpath(full_package_dir)
-                                    print(f"⚠ _version.py is outdated (v{existing_version}, current: v{current_version})")
+                                    print(f"WARNING: _version.py is outdated (v{existing_version}, current: v{current_version})")
                                     print(f"  Run: py generate_version.py {rel_path}")
                 except:
                     pass

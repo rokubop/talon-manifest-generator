@@ -21,7 +21,7 @@ def create_new_readme(manifest: dict, package_dir: Path) -> str:
     title = manifest.get("title", manifest.get("name", "Talon Package"))
     description = manifest.get("description", "A Talon voice control package.")
     shields = generate_shields(manifest)
-    installation = generate_installation_markdown(manifest)
+    status = manifest.get("status", "").lower()
 
     lines = [
         f"# {title}",
@@ -38,55 +38,72 @@ def create_new_readme(manifest: dict, package_dir: Path) -> str:
             '<img src="preview.png" alt="preview">',
         ])
 
-    lines.extend([
-        "",
-        installation,
-    ])
+    # Skip installation for reference, archived, or deprecated packages
+    if status not in ["reference", "archived", "deprecated"]:
+        installation = generate_installation_markdown(manifest)
+        lines.extend([
+            "",
+            installation,
+        ])
 
     return "\n".join(lines)
 
 
-def update_existing_readme(content: str, manifest: dict, package_dir: Path) -> str:
-    """Update shields in existing README, preserving all other content."""
+def update_existing_readme(content: str, manifest: dict, package_dir: Path) -> tuple[str, list[str]]:
+    """Update shields in existing README, preserving all other content. Returns (content, actions_taken)."""
     shields = generate_shields(manifest)
     installation = generate_installation_markdown(manifest)
+    status = manifest.get("status", "").lower()
+    actions = []
 
-    # Update or add shields at the top (after title)
+    # Shield pattern to find existing shields
     shield_pattern = r"!\[(Version|Status|Platform|Talon Beta)\]\([^\)]+\)"
 
-    # Find first heading
-    title_match = re.search(r"^#\s+.+$", content, re.MULTILINE)
-    if title_match:
-        title_end = title_match.end()
-        # Look for existing shields after title
-        after_title = content[title_end:]
+    # Check if shields already exist anywhere in the content
+    existing_shields = re.findall(shield_pattern, content)
 
-        # Remove all existing shields
-        after_title_cleaned = re.sub(shield_pattern + r"\s*", "", after_title)
-
-        # Insert new shields after title
-        shields_text = "\n\n" + "\n".join(shields)
-        content = content[:title_end] + shields_text + after_title_cleaned
+    if existing_shields:
+        # Shields exist - update them in place
+        # Replace each old shield with corresponding new shield
+        shield_lines = "\n".join(shields)
+        # Find all shields as a block (consecutive lines with optional blank lines between)
+        shield_block_pattern = r"(?:" + shield_pattern + r"\s*)+"
+        content = re.sub(shield_block_pattern, shield_lines + "\n\n", content, count=1)
+        actions.append("updated shields")
     else:
-        # No title found, add shields at top
-        shields_text = "\n".join(shields) + "\n\n"
-        content = shields_text + content
+        # No shields exist - add them
+        # Try to add after title
+        title_match = re.search(r"^#\s+.+$", content, re.MULTILINE)
+        if title_match:
+            title_end = title_match.end()
+            shields_text = "\n\n" + "\n".join(shields) + "\n\n"
+            content = content[:title_end] + shields_text + content[title_end:].lstrip()
+            actions.append("added shields after title")
+        else:
+            # No title found, add at end
+            shields_text = "\n\n" + "\n".join(shields) + "\n"
+            content = content.rstrip() + shields_text
+            actions.append("added shields at end")
 
     # Check if Installation/Install/Setup section exists
     install_section_pattern = r"^#{1,6}\s+.*\b(Installation|Install|Setup)\b"
-    if not re.search(install_section_pattern, content, re.MULTILINE | re.IGNORECASE):
-        # No installation section found, add it
-        # Try to add before common sections like Usage, Features, License
-        common_sections = re.search(r"^#{1,6}\s+(Usage|Features|License|Contributing|API)\s*$", content, re.MULTILINE | re.IGNORECASE)
-        if common_sections:
-            # Add before the first common section
-            insert_pos = common_sections.start()
-            content = content[:insert_pos] + installation + "\n\n" + content[insert_pos:]
-        else:
-            # No common sections, add at the end
-            content = content.rstrip() + "\n\n" + installation + "\n"
 
-    return content
+    # Only add installation section if status allows it and section doesn't exist
+    if status not in ["reference", "archived", "deprecated"]:
+        if not re.search(install_section_pattern, content, re.MULTILINE | re.IGNORECASE):
+            # No installation section found, add it
+            actions.append("added installation section")
+            # Try to add before common sections like Usage, Features, License
+            common_sections = re.search(r"^#{1,6}\s+(Usage|Features|License|Contributing|API)\s*$", content, re.MULTILINE | re.IGNORECASE)
+            if common_sections:
+                # Add before the first common section
+                insert_pos = common_sections.start()
+                content = content[:insert_pos] + installation + "\n\n" + content[insert_pos:]
+            else:
+                # No common sections, add at the end
+                content = content.rstrip() + "\n\n" + installation + "\n"
+
+    return content, actions
 
 
 def process_directory(package_dir: str):
@@ -96,7 +113,7 @@ def process_directory(package_dir: str):
     # Find manifest.json
     manifest_path = package_dir / "manifest.json"
     if not manifest_path.exists():
-        print(f"❌ Error: manifest.json not found in {package_dir}")
+        print(f"Error: manifest.json not found in {package_dir}")
         return False
 
     # Load manifest
@@ -112,12 +129,13 @@ def process_directory(package_dir: str):
             with open(readme_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            updated_content = update_existing_readme(content, manifest, package_dir)
+            updated_content, actions = update_existing_readme(content, manifest, package_dir)
 
             with open(readme_path, "w", encoding="utf-8") as f:
                 f.write(updated_content)
 
-            print(f"✅ Updated {readme_path}")
+            actions_str = " and ".join(actions)
+            print(f"Updated README: {actions_str}")
         else:
             # Create new README
             new_content = create_new_readme(manifest, package_dir)
@@ -125,10 +143,10 @@ def process_directory(package_dir: str):
             with open(readme_path, "w", encoding="utf-8") as f:
                 f.write(new_content)
 
-            print(f"✅ Created {readme_path}")
+            print(f"Created new {readme_path}")
         return True
     except Exception as e:
-        print(f"❌ Error processing {package_dir}: {e}")
+        print(f"Error processing {package_dir}: {e}")
         return False
 
 

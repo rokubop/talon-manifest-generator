@@ -1,5 +1,6 @@
 """
 Run all generators in sequence: manifest, version, and readme.
+Will update instead of overwriting existing code where relevant.
 
 Usage:
   py generate_all.py [directory]    # Generate all files for directory (default: current)
@@ -31,7 +32,7 @@ def run_generator(script_name: str, directory: str) -> bool:
 def process_directory(package_dir: Path) -> bool:
     """Process a single directory with all generators."""
     if not package_dir.exists():
-        print(f"❌ Error: Directory not found: {package_dir}")
+        print(f"Error: Directory not found: {package_dir}")
         return False
 
     print(f"\nGenerating files for: {package_dir}")
@@ -48,10 +49,10 @@ def process_directory(package_dir: Path) -> bool:
         print(f"\nRunning {generator}...")
         print("-" * 60)
         if not run_generator(generator, str(package_dir)):
-            print(f"❌ Failed at {generator}")
+            print(f"Failed at {generator}")
             return False
 
-    print("✅ All generators completed for {package_dir}")
+    print(f"All generators completed for {package_dir}")
     return True
 
 
@@ -71,9 +72,12 @@ def main():
 
     print("\n" + "=" * 60)
     if success_count == total_count:
-        print(f"✅ All {total_count} director{'y' if total_count == 1 else 'ies'} processed successfully!")
+        if total_count == 1:
+            print("SUCCESS: All generators completed successfully!")
+        else:
+            print(f"SUCCESS: All {total_count} directories processed successfully!")
     else:
-        print(f"⚠️  Processed {success_count}/{total_count} directories successfully")
+        print(f"Processed {success_count}/{total_count} directories successfully")
 
 
 if __name__ == "__main__":

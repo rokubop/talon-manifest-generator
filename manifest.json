@@ -3,7 +3,7 @@
   "title": "Talon Manifest Generator",
   "description": "Generates manifest.json and _version.py for Talon packages with automatic dependency detection",
   "version": "2.0.0",
-  "status": "experimental",
+  "status": "preview",
   "namespace": "",
   "github": "https://github.com/rokubop/talon-manifest-generator",
   "preview": "",

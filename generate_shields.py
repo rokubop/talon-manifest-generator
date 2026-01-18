@@ -144,7 +144,7 @@ def process_directory(package_dir: str):
     # Find manifest.json
     manifest_path = package_dir / "manifest.json"
     if not manifest_path.exists():
-        print(f"❌ Error: manifest.json not found in {package_dir}")
+        print(f"Error: manifest.json not found in {package_dir}")
         return False
 
     # Load manifest
@@ -161,7 +161,7 @@ def process_directory(package_dir: str):
         if readme_path.exists():
             updated = update_readme(readme_path, manifest)
             if updated:
-                print(f"✅ Updated shields in {readme_path}")
+                print(f"Updated shields in {readme_path}")
             else:
                 # README exists but no shields found - print display block
                 print(f"\nShields for {package_dir}:")
@@ -172,7 +172,7 @@ def process_directory(package_dir: str):
             print_display_block(shields)
         return True
     except Exception as e:
-        print(f"❌ Error processing {package_dir}: {e}")
+        print(f"Error processing {package_dir}: {e}")
         return False
 
 
