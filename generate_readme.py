@@ -12,12 +12,12 @@ import json
 import re
 import sys
 from pathlib import Path
-from generate_shields import generate_shields
-from generate_install_block import generate_installation_markdown
-
 
 def create_new_readme(manifest: dict, package_dir: Path) -> str:
     """Create a new README from scratch."""
+    from generate_shields import generate_shields
+    from generate_install_block import generate_installation_markdown
+
     title = manifest.get("title", manifest.get("name", "Talon Package"))
     description = manifest.get("description", "A Talon voice control package.")
     shields = generate_shields(manifest)
@@ -51,6 +51,9 @@ def create_new_readme(manifest: dict, package_dir: Path) -> str:
 
 def update_existing_readme(content: str, manifest: dict, package_dir: Path) -> tuple[str, list[str]]:
     """Update shields in existing README, preserving all other content. Returns (content, actions_taken)."""
+    from generate_shields import generate_shields
+    from generate_install_block import generate_installation_markdown
+
     shields = generate_shields(manifest)
     installation = generate_installation_markdown(manifest)
     status = manifest.get("status", "").lower()
@@ -166,7 +169,6 @@ def main():
 
     if total_count > 1:
         print(f"\nProcessed {success_count}/{total_count} directories successfully")
-
 
 if __name__ == "__main__":
     main()
