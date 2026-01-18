@@ -26,7 +26,7 @@ Manifest fields:
 - namespace: Naming prefix for all contributions (e.g. user.my_package)
 - github: GitHub repository URL
 - preview: Preview image URL
-- author: Package author name
+- author: Package author name (string) or names (list of strings)
 - tags: Category tags for the package
 - requiresTalonBeta: Whether package requires Talon beta - attempts to auto detect if this is not yet set (first run), otherwise preserves existing setting
 - validateDependencies: Whether to validate dependencies at runtime (default: true)
@@ -739,6 +739,19 @@ def create_or_update_manifest() -> None:
                 # Convert to Title Case: hyphens/underscores to spaces, capitalize words
                 default_title = title_base.replace('-', ' ').replace('_', ' ').title()
 
+            # Auto-detect preview image if preview field is empty
+            preview_value = existing_manifest_data.get("preview", "")
+            if not preview_value:
+                # Check for common image formats
+                for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
+                    preview_path = os.path.join(full_package_dir, f"preview{ext}")
+                    if os.path.exists(preview_path):
+                        github_url = existing_manifest_data.get("github", "")
+                        if github_url:
+                            # Convert github.com URL to raw.githubusercontent.com URL for preview image
+                            preview_value = github_url.replace("github.com", "raw.githubusercontent.com").rstrip('/') + f"/main/preview{ext}"
+                        break
+
             new_manifest_data = {
                 "name": existing_manifest_data.get("name", os.path.basename(full_package_dir)),
                 "title": existing_manifest_data.get("title", default_title),
@@ -747,7 +760,7 @@ def create_or_update_manifest() -> None:
                 "status": existing_manifest_data.get("status", "experimental"),
                 "namespace": namespace,
                 "github": existing_manifest_data.get("github", ""),
-                "preview": existing_manifest_data.get("preview", ""),
+                "preview": preview_value,
                 "author": existing_manifest_data.get("author", ""),
                 "tags": existing_manifest_data.get("tags", []),
             }
