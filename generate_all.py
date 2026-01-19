@@ -14,13 +14,16 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
 
-def run_generator(script_name: str, directory: str) -> bool:
+def run_generator(script_name: str, directory: str, extra_args: list = None) -> bool:
     """Run a generator script and return success status."""
     try:
         # Build full path to the generator script
         script_path = SCRIPT_DIR / script_name
+        cmd = [sys.executable, str(script_path), directory]
+        if extra_args:
+            cmd.extend(extra_args)
         result = subprocess.run(
-            [sys.executable, str(script_path), directory],
+            cmd,
             capture_output=True,
             text=True,
             check=True
@@ -45,15 +48,15 @@ def process_directory(package_dir: Path) -> bool:
 
     # Run generators in sequence
     generators = [
-        "generate_manifest.py",
-        "generate_version.py",
-        "generate_readme.py"
+        ("generate_manifest.py", ["--skip-version-check"]),
+        ("generate_version.py", None),
+        ("generate_readme.py", None)
     ]
 
-    for generator in generators:
+    for generator, extra_args in generators:
         print(f"\nRunning {generator}...")
         print("-" * 60)
-        if not run_generator(generator, str(package_dir)):
+        if not run_generator(generator, str(package_dir), extra_args):
             print(f"Failed at {generator}")
             return False
 

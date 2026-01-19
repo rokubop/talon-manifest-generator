@@ -135,14 +135,20 @@ class EntityVisitor(ParentNodeVisitor):
                         if full_action_name not in self.all_entities.contributes.actions:
                             self.all_entities.contributes.actions.add(full_action_name)
 
-            # function directly decorated with action
+            # function directly decorated with action or capture
             for dec in node.decorator_list:
                 if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute):
+                    # @mod.action("full.action.name")
                     if dec.func.attr == 'action' and isinstance(dec.args[0], ast.Constant):
                         # Assume full action name is already provided in the decorator
                         full_action_name = dec.args[0].value
                         if full_action_name not in self.all_entities.contributes.actions:
                             self.all_entities.contributes.actions.add(full_action_name)
+                    # @mod.capture(rule="...")
+                    elif dec.func.attr == 'capture':
+                        full_capture_name = f"user.{node.name}"
+                        if full_capture_name not in self.all_entities.contributes.captures:
+                            self.all_entities.contributes.captures.add(full_capture_name)
 
         except Exception as e:
             print(f"Error processing function definition: {e}")
@@ -676,11 +682,12 @@ def validate_namespace(namespace: str, contributes: Entities, strict: bool = Tru
         print(f"\nNamespace warnings (expected namespace: {namespace}):")
         for warning in warnings:
             print(warning)
+        print(f"  To disable these warnings, set '_generatorStrictNamespace': false in manifest.json")
         print()
 
     return len(warnings)
 
-def check_version_action(namespace: str, contributes: Entities, version_check: bool, package_name: str, package_dir: str) -> int:
+def check_version_action(namespace: str, contributes: Entities, version_check: bool, package_name: str, package_dir: str, skip_version_errors: bool = False) -> int:
     """
     Check if package provides a version action.
 
@@ -690,6 +697,7 @@ def check_version_action(namespace: str, contributes: Entities, version_check: b
         version_check: True to error if missing, False to skip check
         package_name: Name of the package
         package_dir: Absolute path to package directory
+        skip_version_errors: If True, suppress error messages (used by generate_all.py)
 
     Returns:
         Number of errors found (0 or 1)
@@ -707,11 +715,14 @@ def check_version_action(namespace: str, contributes: Entities, version_check: b
         # Check if _version.py file exists
         version_file = os.path.join(package_dir, '_version.py')
         if not os.path.exists(version_file):
-            print(f"\nERROR: Missing required version action '{expected_action}'")
-            print(f"   Run: python generate_version.py {package_name}")
-            print(f"   Or set \"_generatorRequiresVersionAction\": false in manifest.json to skip this check")
-            print()
-            return 1
+            if not skip_version_errors:
+                print(f"\nERROR: Missing required version action '{expected_action}'")
+                print(f"   Run: python generate_version.py {package_name}")
+                print(f"   Or set \"_generatorRequiresVersionAction\": false in manifest.json to skip this check")
+                print()
+                return 1
+            # When skipping errors (generate_all.py), don't count as error since it will be fixed next
+            return 0
         else:
             print(f"\nWARNING: _version.py exists but action '{expected_action}' not detected")
             print(f"   The file may need to be regenerated or Talon needs to be reloaded")
@@ -755,7 +766,7 @@ def load_existing_manifest(package_dir: str) -> dict:
             return json.load(f)
     return {}
 
-def create_or_update_manifest() -> None:
+def create_or_update_manifest(skip_version_errors: bool = False) -> None:
     if len(sys.argv) < 2:
         print("Usage: python manifest_builder.py <directory> [<directory2> ...]")
         print("Example: python manifest_builder.py ../my-package")
@@ -794,36 +805,6 @@ def create_or_update_manifest() -> None:
             existing_manifest_data = load_existing_manifest(full_package_dir)
             is_new_manifest = not existing_manifest_data
             new_entity_data, py_count, talon_count = entity_extract(full_package_dir)
-
-            # Display scan statistics
-            print(f"  Scanned {py_count} .py file(s), {talon_count} .talon file(s)")
-
-            # Count contributes and depends
-            contributes_count = sum(len(getattr(new_entity_data.contributes, key)) for key in ENTITIES)
-            depends_count = sum(len(getattr(new_entity_data.depends, key)) for key in ENTITIES)
-
-            # Show contributes breakdown
-            if contributes_count > 0:
-                breakdown = []
-                for key in ENTITIES:
-                    count = len(getattr(new_entity_data.contributes, key))
-                    if count > 0:
-                        breakdown.append(f"{count} {key}")
-                print(f"  Contributes: {contributes_count} items ({', '.join(breakdown)})")
-            else:
-                print(f"  Contributes: 0 items")
-
-            # Show depends breakdown
-            if depends_count > 0:
-                breakdown = []
-                for key in ENTITIES:
-                    count = len(getattr(new_entity_data.depends, key))
-                    if count > 0:
-                        breakdown.append(f"{count} {key}")
-                print(f"  Depends: {depends_count} items ({', '.join(breakdown)})")
-            else:
-                print(f"  Depends: 0 items")
-            print()
 
             for key in ENTITIES:
                 contributes_set = sorted(list(getattr(new_entity_data.contributes, key)))
@@ -880,7 +861,7 @@ def create_or_update_manifest() -> None:
             # Check version action
             version_check = existing_manifest_data.get("_generatorRequiresVersionAction", True)
             if namespace:  # Only check if package has a namespace
-                total_errors += check_version_action(namespace, new_entity_data.contributes, version_check, package_name, full_package_dir)
+                total_errors += check_version_action(namespace, new_entity_data.contributes, version_check, package_name, full_package_dir, skip_version_errors)
 
             # Check if we need to resolve dependencies
             has_dependencies = any([
@@ -930,6 +911,11 @@ def create_or_update_manifest() -> None:
                     dev_deps_found.append(pkg_name)
                     package_dependencies.pop(pkg_name, None)
 
+            # Count contributes and depends
+            contributes_count = sum(len(getattr(new_entity_data.contributes, key)) for key in ENTITIES)
+            depends_count = sum(len(getattr(new_entity_data.depends, key)) for key in ENTITIES)
+
+            # Show dependency information
             if package_dependencies:
                 print(f"Package dependencies:")
                 for pkg_name, pkg_info in package_dependencies.items():
@@ -944,6 +930,32 @@ def create_or_update_manifest() -> None:
                 print()
             else:
                 print(f"No package dependencies\n")
+
+            # Show contributes breakdown
+            if contributes_count > 0:
+                breakdown = []
+                for key in ENTITIES:
+                    count = len(getattr(new_entity_data.contributes, key))
+                    if count > 0:
+                        breakdown.append(f"{count} {key}")
+                print(f"  Contributes: {contributes_count} items ({', '.join(breakdown)})")
+            else:
+                print(f"  Contributes: 0 items")
+
+            # Show depends breakdown
+            if depends_count > 0:
+                breakdown = []
+                for key in ENTITIES:
+                    count = len(getattr(new_entity_data.depends, key))
+                    if count > 0:
+                        breakdown.append(f"{count} {key}")
+                print(f"  Depends: {depends_count} items ({', '.join(breakdown)})")
+            else:
+                print(f"  Depends: 0 items")
+
+            # Display scan statistics
+            print(f"  Scanned {py_count} .py file(s), {talon_count} .talon file(s)")
+            print()
 
             # Check if package requires Talon beta
             # Only auto-detect if not manually set in existing manifest
@@ -1082,4 +1094,5 @@ def create_or_update_manifest() -> None:
         print(f"{'='*60}")
 
 if __name__ == "__main__":
-    create_or_update_manifest()
+    skip_version_errors = "--skip-version-check" in sys.argv
+    create_or_update_manifest(skip_version_errors)
