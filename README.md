@@ -6,6 +6,8 @@
 
 Provides scripts for generating package-like files for your Talon repo: `manifest.json` with dependencies and contributions, `_version.py` with version actions and dependency validation, `README.md` with shield badges and installation instructions, and more.
 
+> **Note:** This is an unofficial community tool for generating metadata files, versioning conventions, and dependency checking for Talon repositories.
+
 ## Installation
 
 Clone this repo into your [Talon](https://talonvoice.com/) user directory:
