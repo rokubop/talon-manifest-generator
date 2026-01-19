@@ -82,12 +82,13 @@ python generate_all.py ../talon-repo-1 ../talon-repo-2
   "title": "My Package",
   "description": "A brief description of what the package does",
   "version": "1.0.0",
-  "namespace": "user.my_package",
-  "github": "https://github.com/user/my-package",
-  "preview": "",
   "status": "experimental",
+  "namespace": "user.my_package",
+  "github": "https://github.com/user/talon-my-package",
+  "preview": "",
   "author": "Your Name",
   "tags": ["productivity", "editing"],
+  "license": "MIT",
   "dependencies": {
     "talon-ui-elements": {
       "version": "0.13.0",
@@ -97,16 +98,25 @@ python generate_all.py ../talon-repo-1 ../talon-repo-2
   },
   "devDependencies": {},
   "contributes": {
-    "actions": ["user.my_package_action"],
-    "settings": ["user.my_package_setting"]
+      "settings": [
+        "user.my_package_setting_1",
+        "user.my_package_setting_2"
+    ],
+    "actions": [
+        "user.my_package_action_1",
+        "user.my_package_action_2",
+        "user.my_package_version"
+    ],
   },
   "depends": {
     "actions": ["user.ui_elements_show"]
   },
+  "validateDependencies": true,
   "_generator": "talon-manifest-generator",
   "_generatorVersion": "2.0.0",
   "_generatorRequiresVersionAction": true,
-  "_generatorStrictNamespace": true
+  "_generatorStrictNamespace": true,
+  "_generatorFrozenFields": [],
 }
 ```
 
