@@ -69,6 +69,21 @@ ENTITIES = ["apps", "tags", "modes", "scopes", "settings", "captures", "lists", 
 MOD_ATTR_CALLS = ["setting", "tag", "mode", "list"]
 NAMESPACES = ["user", "edit", "core", "app", "code"]
 
+# Built-in Talon action namespaces that should not be added to dependencies
+BUILTIN_ACTION_NAMESPACES = {
+    "app", "auto_format", "auto_insert", "browser", "bytes", "clip", "code", "core",
+    "deck", "dict", "dictate", "edit", "find", "insert", "key", "list", "math", "menu",
+    "mimic", "mode", "mouse_click", "mouse_drag", "mouse_move", "mouse_nudge",
+    "mouse_release", "mouse_scroll", "mouse_x", "mouse_y", "next", "paste", "path",
+    "print", "random", "set", "settings", "skip", "sleep", "sound", "speech", "string",
+    "time", "tracking", "tuple", "types", "win"
+}
+
+def is_builtin_action(action_name: str) -> bool:
+    """Check if an action is a built-in Talon action that shouldn't be tracked as a dependency."""
+    namespace = action_name.split('.')[0]
+    return namespace in BUILTIN_ACTION_NAMESPACES
+
 @dataclass
 class Entities:
     apps: set = field(default_factory=set)
@@ -980,7 +995,19 @@ def create_or_update_manifest(skip_version_errors: bool = False) -> None:
                 for key in ENTITIES:
                     count = len(getattr(new_entity_data.depends, key))
                     if count > 0:
-                        breakdown.append(f"{count} {key}")
+                        if key == "actions":
+                            # Split actions into package and built-in
+                            all_actions = getattr(new_entity_data.depends, key)
+                            builtin_count = sum(1 for action in all_actions if is_builtin_action(action))
+                            package_count = count - builtin_count
+                            if package_count > 0 and builtin_count > 0:
+                                breakdown.append(f"{package_count} actions, {builtin_count} built-in")
+                            elif builtin_count > 0:
+                                breakdown.append(f"{builtin_count} built-in actions")
+                            else:
+                                breakdown.append(f"{count} actions")
+                        else:
+                            breakdown.append(f"{count} {key}")
                 print(f"  Depends: {depends_count} items ({', '.join(breakdown)})")
             else:
                 print(f"  Depends: 0 items")
@@ -991,12 +1018,12 @@ def create_or_update_manifest(skip_version_errors: bool = False) -> None:
 
             # Check if package requires Talon beta
             requires_set = set(new_entity_data.requires)  # Start with detected hardware requirements
-            
+
             # Check for eye tracker requirement based on tracking.* actions
             all_actions = set(new_entity_data.depends.actions) | set(new_entity_data.contributes.actions)
             if any(action.startswith('tracking.') for action in all_actions):
                 requires_set.add("eyeTracker")
-            
+
             # Handle Talon beta requirement (preserve existing or auto-detect)
             if "requires" in existing_manifest_data and "talonBeta" in existing_manifest_data["requires"]:
                 requires_set.add("talonBeta")
@@ -1063,12 +1090,19 @@ def create_or_update_manifest(skip_version_errors: bool = False) -> None:
             else:
                 default_require_version = existing_manifest_data.get("_generatorRequiresVersionAction", True)
 
+            # Filter built-in actions from depends before adding to manifest
+            filtered_depends_dict = vars(new_entity_data.depends).copy()
+            filtered_depends_dict['actions'] = sorted([
+                action for action in new_entity_data.depends.actions 
+                if not is_builtin_action(action)
+            ])
+
             new_manifest_data.update({
                 "requires": sorted(list(requires_set)),
                 "dependencies": package_dependencies,
                 "devDependencies": existing_manifest_data.get("devDependencies", {}),
                 "contributes": vars(new_entity_data.contributes),
-                "depends": vars(new_entity_data.depends),
+                "depends": filtered_depends_dict,
             })
 
             # Only include validateDependencies if user explicitly set it or there are dependencies

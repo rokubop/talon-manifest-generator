@@ -25,7 +25,7 @@ def generate_installation_markdown(manifest: dict) -> str:
     # Combine Requirements and Dependencies sections if both exist
     has_requirements = bool(requires)
     has_dependencies = bool(dependencies)
-    
+
     if has_requirements or has_dependencies:
         # Decide section title
         if has_requirements and has_dependencies:
@@ -34,15 +34,15 @@ def generate_installation_markdown(manifest: dict) -> str:
             lines.append("\n### Requirements")
         else:
             lines.append("\n### Dependencies")
-        
+
         lines.append("")
-        
+
         # Add requirements
         if has_requirements:
             for req in requires:
                 description = requirement_descriptions.get(req, f"**{req}**")
                 lines.append(f"- {description}")
-        
+
         # Add dependencies
         if has_dependencies:
             for dep_name, dep_info in dependencies.items():

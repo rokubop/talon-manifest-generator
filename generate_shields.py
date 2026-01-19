@@ -75,22 +75,22 @@ def update_readme(readme_path: Path, manifest: dict) -> bool:
 
     # Pattern to match any shield badge
     shield_pattern = r"!\[[^\]]+\]\(https://img\.shields\.io/badge/[^\)]+\)"
-    
+
     # Check if shields exist
     if not re.search(shield_pattern, content):
         return False
-    
+
     # Generate new shields
     new_shields = generate_shields(manifest)
     new_shields_block = "\n".join(new_shields)
-    
+
     # Find all consecutive shields and replace as a block
     shield_block_pattern = r"(?:" + shield_pattern + r"\s*)+"
     content = re.sub(shield_block_pattern, new_shields_block + "\n\n", content, count=1)
-    
+
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write(content)
-    
+
     return True
 
 
