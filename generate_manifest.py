@@ -35,7 +35,7 @@ Manifest fields:
 - validateDependencies: Whether to validate dependencies at runtime (default: true)
   - true: Print errors on startup if dependencies not met
   - false: Skip dependency validation
-- dependencies: Required packages with versions (auto-generated)
+- dependencies: Required packages with minimum versions (auto-generated)
 - devDependencies: Dev-only dependencies (manually maintained)
 - contributes: Actions/settings/tags/lists/modes/scopes/captures this package provides (auto-generated)
 - depends: Actions/settings/etc. this package uses (auto-generated)
@@ -679,7 +679,7 @@ def scan_all_manifests(talon_root: str) -> dict:
                     for entity in entities:
                         entity_to_package[entity] = {
                             'package': package_name,
-                            'version': package_version,
+                            'min_version': package_version,
                             'namespace': package_namespace,
                             'github': package_github
                         }
@@ -692,7 +692,7 @@ def scan_all_manifests(talon_root: str) -> dict:
 def resolve_package_dependencies(depends: Entities, entity_to_package: dict, current_package: str = None) -> dict:
     """
     Resolve package dependencies from entity dependencies.
-    Returns a dict of package names to {version, namespace, github}.
+    Returns a dict of package names to {min_version, namespace, github}.
     Excludes current_package to prevent self-dependencies.
     """
     package_deps = {}
@@ -703,18 +703,18 @@ def resolve_package_dependencies(depends: Entities, entity_to_package: dict, cur
             if entity in entity_to_package:
                 pkg_info = entity_to_package[entity]
                 pkg_name = pkg_info['package']
-                pkg_version = pkg_info['version']
+                pkg_version = pkg_info['min_version']
                 pkg_namespace = pkg_info['namespace']
                 pkg_github = pkg_info.get('github', '')
 
                 if current_package and pkg_name == current_package:
                     continue
 
-                # If we already have this package, keep existing version
+                # If we already have this package, keep existing min_version
                 # (in case multiple entities from same package)
                 if pkg_name not in package_deps:
                     dep_info = {
-                        'version': pkg_version,
+                        'min_version': pkg_version,
                         'namespace': pkg_namespace
                     }
                     if pkg_github:
@@ -1065,16 +1065,17 @@ def create_or_update_manifest(skip_version_errors: bool = False) -> None:
                 current_pkg_name = existing_manifest_data.get('name', package_name)
                 package_dependencies = resolve_package_dependencies(new_entity_data.depends, entity_to_package, current_pkg_name)
 
-                # Preserve manually specified versions and github URLs from existing manifest
+                # Preserve manually specified min_versions and github URLs from existing manifest
                 existing_deps = existing_manifest_data.get("dependencies", {})
                 for pkg_name in existing_deps:
                     if pkg_name in package_dependencies:
-                        # Handle both old (string) and new (dict) formats
                         if isinstance(existing_deps[pkg_name], str):
-                            package_dependencies[pkg_name]['version'] = existing_deps[pkg_name]
+                            package_dependencies[pkg_name]['min_version'] = existing_deps[pkg_name]
                         else:
-                            if 'version' in existing_deps[pkg_name]:
-                                package_dependencies[pkg_name]['version'] = existing_deps[pkg_name]['version']
+                            if 'min_version' in existing_deps[pkg_name]:
+                                package_dependencies[pkg_name]['min_version'] = existing_deps[pkg_name]['min_version']
+                            elif 'version' in existing_deps[pkg_name]:
+                                package_dependencies[pkg_name]['min_version'] = existing_deps[pkg_name]['version']
                             # Preserve github URL if it exists in the existing manifest
                             if 'github' in existing_deps[pkg_name]:
                                 package_dependencies[pkg_name]['github'] = existing_deps[pkg_name]['github']
@@ -1098,13 +1099,13 @@ def create_or_update_manifest(skip_version_errors: bool = False) -> None:
             if package_dependencies:
                 print(f"Package dependencies:")
                 for pkg_name, pkg_info in package_dependencies.items():
-                    print(f"  - {pkg_name} ({pkg_info['version']})")
+                    print(f"  - {pkg_name} ({pkg_info['min_version']})")
                 print()
             elif dev_deps_found:
                 print(f"Package dependencies (covered by devDependencies):")
                 for pkg_name in dev_deps_found:
                     dev_dep_info = existing_dev_deps[pkg_name]
-                    version = dev_dep_info.get('version', 'unknown') if isinstance(dev_dep_info, dict) else dev_dep_info
+                    version = dev_dep_info.get('min_version') or dev_dep_info.get('version', 'unknown') if isinstance(dev_dep_info, dict) else dev_dep_info
                     print(f"  - {pkg_name} ({version}) [devDependency]")
                 print()
             else:
