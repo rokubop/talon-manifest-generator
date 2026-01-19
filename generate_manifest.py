@@ -118,6 +118,7 @@ BUILTIN_LISTS = {
     "number_small", "special_key", "symbol"
 }
 
+# Choose a conservative set of detections in case features move to stable later
 TALON_BETA_DETECTION_PATTERNS = {
     'talon_files': [
         'parrot(',
@@ -125,10 +126,10 @@ TALON_BETA_DETECTION_PATTERNS = {
         'deck(',
     ],
     'ctx_calls': [
-        'dynamic_list',
+        # 'dynamic_list',
     ],
     'ctx_subscripts': [
-        "selections",
+        # "selections",
     ],
 }
 
