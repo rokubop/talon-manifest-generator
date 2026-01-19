@@ -34,24 +34,25 @@ def generate_shields(manifest: dict) -> list[str]:
     shields = []
 
     # Version badge
-    version = manifest.get("version", "0.0.0")
+    version = manifest.get("version", "0.0.0").replace("-", "--")
     shields.append(f"![Version](https://img.shields.io/badge/version-{version}-blue)")
 
     # Status badge with color
-    status = manifest.get("status", "unknown").lower()
+    status = manifest.get("status", "unknown").lower().replace("-", "--")
     status_color = STATUS_COLORS.get(status, "lightgrey")
     shields.append(f"![Status](https://img.shields.io/badge/status-{status}-{status_color})")
 
     # Platform badge (optional)
     platforms = manifest.get("platforms")
     if platforms:
-        platform_str = "%20%7C%20".join(platforms)  # " | " encoded
+        platform_str = "%20%7C%20".join(p.replace("-", "--") for p in platforms)  # " | " encoded
         shields.append(f"![Platform](https://img.shields.io/badge/platform-{platform_str}-lightgrey)")
 
     # License badge (optional)
     license_type = manifest.get("license")
     if license_type:
-        shields.append(f"![License](https://img.shields.io/badge/license-{license_type}-green)")
+        license_escaped = license_type.replace("-", "--")
+        shields.append(f"![License](https://img.shields.io/badge/license-{license_escaped}-green)")
 
     # Requires Talon Beta badge (if true)
     if manifest.get("requires_talon_beta") or manifest.get("requiresTalonBeta"):
@@ -72,7 +73,7 @@ def update_readme(readme_path: Path, manifest: dict) -> bool:
     updated = False
 
     # Update version shield
-    version = manifest.get("version", "0.0.0")
+    version = manifest.get("version", "0.0.0").replace("-", "--")
     version_pattern = r"!\[Version\]\(https://img\.shields\.io/badge/version-[^\)]+\)"
     version_shield = f"![Version](https://img.shields.io/badge/version-{version}-blue)"
     if re.search(version_pattern, content):
@@ -80,7 +81,7 @@ def update_readme(readme_path: Path, manifest: dict) -> bool:
         updated = True
 
     # Update status shield
-    status = manifest.get("status", "unknown").lower()
+    status = manifest.get("status", "unknown").lower().replace("-", "--")
     status_color = STATUS_COLORS.get(status, "lightgrey")
     status_pattern = r"!\[Status\]\(https://img\.shields\.io/badge/status-[^\)]+\)"
     status_shield = f"![Status](https://img.shields.io/badge/status-{status}-{status_color})"
@@ -92,7 +93,7 @@ def update_readme(readme_path: Path, manifest: dict) -> bool:
     platforms = manifest.get("platforms")
     platform_pattern = r"!\[Platform\]\(https://img\.shields\.io/badge/platform-[^\)]+\)"
     if platforms:
-        platform_str = "%20%7C%20".join(platforms)
+        platform_str = "%20%7C%20".join(p.replace("-", "--") for p in platforms)
         platform_shield = f"![Platform](https://img.shields.io/badge/platform-{platform_str}-lightgrey)"
         if re.search(platform_pattern, content):
             content = re.sub(platform_pattern, platform_shield, content)
@@ -106,7 +107,8 @@ def update_readme(readme_path: Path, manifest: dict) -> bool:
     license_type = manifest.get("license")
     license_pattern = r"!\[License\]\(https://img\.shields\.io/badge/license-[^\)]+\)"
     if license_type:
-        license_shield = f"![License](https://img.shields.io/badge/license-{license_type}-green)"
+        license_escaped = license_type.replace("-", "--")
+        license_shield = f"![License](https://img.shields.io/badge/license-{license_escaped}-green)"
         if re.search(license_pattern, content):
             content = re.sub(license_pattern, license_shield, content)
             updated = True

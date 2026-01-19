@@ -1,4 +1,5 @@
 import ast
+from collections import Counter
 from dataclasses import dataclass, field
 import json
 import os
@@ -437,47 +438,48 @@ def resolve_package_dependencies(depends: Entities, entity_to_package: dict, cur
 def infer_namespace_from_entities(contributes: Entities) -> str | None:
     """
     Infer namespace from contributed entities.
-    Finds the longest common prefix among all user.* entities.
-    Returns None if no user.* entities exist.
+    Finds the longest prefix that appears in the majority (>50%) of entities.
+    Returns None if no entities exist or no common pattern found.
     """
-    user_entities = []
+    all_entities = []
 
-    # Collect all user.* entity suffixes
+    # Collect all entities from all namespaces
     for entity_type in ENTITIES:
         entities = getattr(contributes, entity_type)
         for entity in entities:
-            if entity.startswith('user.'):
-                # Extract part after 'user.'
-                suffix = entity[5:]
-                user_entities.append(suffix)
+            # Only process entities with a namespace prefix (user., edit., core., etc.)
+            if '.' in entity:
+                all_entities.append(entity)
 
-    if not user_entities:
+    if not all_entities:
         return None
 
-    if len(user_entities) == 1:
+    if len(all_entities) == 1:
         # Single entity - use everything before last underscore, or whole thing
-        entity = user_entities[0]
+        entity = all_entities[0]
         if '_' in entity:
             return entity.rsplit('_', 1)[0]
         return entity
 
-    # Find longest common prefix
-    prefix = user_entities[0]
-    for entity in user_entities[1:]:
-        # Find common prefix between current prefix and entity
-        i = 0
-        while i < len(prefix) and i < len(entity) and prefix[i] == entity[i]:
-            i += 1
-        prefix = prefix[:i]
+    # Generate all possible underscore-delimited prefixes for each entity
+    prefix_counts = Counter()
+    for entity in all_entities:
+        parts = entity.split('_')
+        # Generate all prefixes: first part, first two parts, etc.
+        for i in range(1, len(parts) + 1):
+            prefix = '_'.join(parts[:i])
+            prefix_counts[prefix] += 1
 
-        if not prefix:
-            break
+    # Find longest prefix that appears in >50% of entities
+    threshold = len(all_entities) * 0.5
+    candidates = [(prefix, count) for prefix, count in prefix_counts.items() if count > threshold]
 
-    # Clean up: remove trailing underscore if present
-    if prefix.endswith('_'):
-        prefix = prefix[:-1]
+    if candidates:
+        # Sort by length (longest first), then by count (highest first)
+        candidates.sort(key=lambda x: (len(x[0]), x[1]), reverse=True)
+        return candidates[0][0]
 
-    return prefix if prefix else None
+    return None
 
 def infer_namespace_from_package_name(package_name: str) -> str:
     """
@@ -665,6 +667,17 @@ def create_or_update_manifest() -> None:
                 setattr(new_entity_data.contributes, key, contributes_set)
                 setattr(new_entity_data.depends, key, depends_filtered)
 
+            # Check if package has any contributions (used for namespace and version checks)
+            has_contributions = any([
+                new_entity_data.contributes.actions,
+                new_entity_data.contributes.settings,
+                new_entity_data.contributes.tags,
+                new_entity_data.contributes.lists,
+                new_entity_data.contributes.modes,
+                new_entity_data.contributes.scopes,
+                new_entity_data.contributes.captures
+            ])
+
             # Check strict namespace setting
             strict_namespace = existing_manifest_data.get("_generatorStrictNamespace", True)
 
@@ -673,26 +686,24 @@ def create_or_update_manifest() -> None:
             if not namespace and strict_namespace:
                 # Only infer namespace if strict mode is enabled
                 namespace = infer_namespace_from_entities(new_entity_data.contributes)
-            if not namespace and strict_namespace:
-                # Check if anything is contributed
-                has_contributions = any([
-                    new_entity_data.contributes.actions,
-                    new_entity_data.contributes.settings,
-                    new_entity_data.contributes.tags,
-                    new_entity_data.contributes.lists,
-                    new_entity_data.contributes.modes,
-                    new_entity_data.contributes.scopes,
-                    new_entity_data.contributes.captures
-                ])
-                if has_contributions:
-                    # Fall back to package name if can't infer from entities
-                    namespace = infer_namespace_from_package_name(package_name)
-                else:
-                    # No contributions, so no namespace needed
-                    namespace = ""
 
-            # Prepend 'user.' to namespace for clarity (unless it's empty)
-            if namespace and not namespace.startswith('user.'):
+                if not namespace:
+                    if has_contributions:
+                        # No clear namespace pattern detected
+                        print(f"WARNING: Could not infer namespace - no prefix appears in >50% of contributions")
+                        print(f"  Contributions don't follow a consistent naming pattern")
+                        print(f"  Best practice: Use a common prefix for all contributions (e.g., 'user.my_pkg_action', 'user.my_pkg_setting')")
+                        print(f"  Or set 'namespace' manually in manifest.json")
+                        print(f"  Or set '_generatorStrictNamespace' to false to skip this check")
+                        print()
+                        total_warnings += 1
+                        namespace = ""
+                    else:
+                        # No contributions, so no namespace needed
+                        namespace = ""
+
+            # Prepend 'user.' to namespace for clarity (unless it's empty and not already prefixed)
+            if namespace and not namespace.startswith(('user.', 'edit.', 'core.', 'app.', 'code.')):
                 namespace = f"user.{namespace}"
 
             # Validate namespace only if strict mode is enabled and there are contributions
@@ -825,8 +836,8 @@ def create_or_update_manifest() -> None:
                 new_manifest_data["license"] = license_value
 
             # Determine default for _generatorRequiresVersionAction
-            # If no namespace exists, should be False. Otherwise preserve existing value or default to True
-            if not namespace:
+            # If no contributions exist, should be False. Otherwise preserve existing value or default to True
+            if not has_contributions:
                 default_require_version = False
             elif is_new_manifest:
                 default_require_version = True
